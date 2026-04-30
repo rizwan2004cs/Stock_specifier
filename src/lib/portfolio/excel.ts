@@ -20,16 +20,17 @@ export type ParsedWorkbook = {
 };
 
 const aliases: Record<ImportField, string[]> = {
-  symbol: ["symbol", "ticker", "scrip", "tradingsymbol", "security", "stock"],
+  symbol: ["symbol", "ticker", "scrip", "tradingsymbol", "security", "stock", "instrument", "company name"],
   exchange: ["exchange", "segment", "market"],
-  quantity: ["qty", "quantity", "shares", "units", "holding qty", "net qty"],
+  quantity: ["qty", "quantity", "shares", "units", "holding qty", "net qty", "qty."],
   averagePrice: [
     "avg",
     "avg price",
     "average price",
     "buy avg",
     "cost price",
-    "average cost"
+    "average cost",
+    "avg cost"
   ],
   buyDate: ["buy date", "purchase date", "date", "trade date"],
   sector: ["sector", "industry"],
