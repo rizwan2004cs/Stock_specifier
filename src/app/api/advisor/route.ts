@@ -20,10 +20,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const userId = await requireUserId();
-  if (!userId) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await requireUserId(); // always returns a string now
 
   const body = requestSchema.parse(await req.json());
   const portfolio = await loadPortfolio(userId);
