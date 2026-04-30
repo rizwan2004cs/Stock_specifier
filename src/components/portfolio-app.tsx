@@ -1156,13 +1156,15 @@ export function PortfolioApp() {
           })
         }
       />
-      <HeroSummary
-        snapshot={snapshot}
-        holdings={holdings}
-        loading={refreshing}
-        onImport={() => setActiveTab("import")}
-        onSample={loadSample}
-      />
+      {activeTab === "dashboard" && (
+        <HeroSummary
+          snapshot={snapshot}
+          holdings={holdings}
+          loading={refreshing}
+          onImport={() => setActiveTab("import")}
+          onSample={loadSample}
+        />
+      )}
       {activeContent[activeTab]}
       <footer className="bg-[var(--parchment)] px-4 py-12 text-xs leading-6 text-[#7a7a7a] md:px-8">
         <div className="mx-auto max-w-[980px]">
