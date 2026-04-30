@@ -3,7 +3,11 @@ import { cacheGet, cacheSet } from "@/lib/cache/redis";
 import { fetchAlphaVantageQuote } from "@/lib/market/alpha-vantage";
 import { fetchYahooQuote } from "@/lib/market/yahoo";
 
-const QUOTE_TTL_SECONDS = 90;
+/**
+ * Cache TTL: 15 minutes.
+ * Alpha Vantage free tier = 25 calls/day, so aggressive caching is essential.
+ */
+const QUOTE_TTL_SECONDS = 900;
 
 export async function getQuotesForHoldings(holdings: HoldingInput[]) {
   const unique = Array.from(
@@ -18,21 +22,33 @@ export async function getQuotesForHoldings(holdings: HoldingInput[]) {
         return { ...cached, freshness: "cached" as const };
       }
 
-      // Pass buyPrice so fallback uses real cost instead of fake numbers
+      // Try Yahoo Finance first (no rate limit)
       const yahooQuote = await fetchYahooQuote(
         holding.symbol,
         holding.exchange,
         holding.averagePrice
       );
 
-      const quote =
-        yahooQuote.freshness === "fallback"
-          ? (await fetchAlphaVantageQuote(holding.symbol, holding.exchange)) ??
-            yahooQuote
-          : yahooQuote;
+      // If Yahoo worked, cache and return
+      if (yahooQuote.freshness !== "fallback") {
+        await cacheSet(cacheKey, yahooQuote, QUOTE_TTL_SECONDS);
+        return yahooQuote;
+      }
 
-      await cacheSet(cacheKey, quote, QUOTE_TTL_SECONDS);
-      return quote;
+      // Yahoo failed → try Alpha Vantage (rate limited)
+      const avQuote = await fetchAlphaVantageQuote(
+        holding.symbol,
+        holding.exchange
+      );
+
+      if (avQuote) {
+        await cacheSet(cacheKey, avQuote, QUOTE_TTL_SECONDS);
+        return avQuote;
+      }
+
+      // Both failed → use fallback with buy price
+      await cacheSet(cacheKey, yahooQuote, QUOTE_TTL_SECONDS);
+      return yahooQuote;
     })
   );
 
