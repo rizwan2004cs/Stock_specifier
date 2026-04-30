@@ -232,18 +232,6 @@ function SubNav({
           {active.label}
         </div>
         <div className="flex items-center gap-2 overflow-x-auto apple-scrollbar">
-          <div className="hidden gap-1 md:flex">
-            {tabs.map((tab) => (
-              <Button
-                key={tab.id}
-                variant={activeTab === tab.id ? "primary" : "ghost"}
-                size="sm"
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {tab.label}
-              </Button>
-            ))}
-          </div>
           <Select
             className="md:hidden"
             value={activeTab}
