@@ -12,10 +12,10 @@
   "dependencies": {
     "@ai-sdk/groq": "latest",
     "@ai-sdk/react": "^3.0.0",
-    "@clerk/nextjs": "latest",
+
     "@neondatabase/serverless": "^1.0.2",
     "@upstash/redis": "latest",
-    "@vercel/blob": "latest",
+
     "ai": "^6.0.0",
     "class-variance-authority": "latest",
     "clsx": "latest",

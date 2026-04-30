@@ -18,18 +18,12 @@ const holdingSchema = z.object({
 
 export async function GET() {
   const userId = await requireUserId();
-  if (!userId) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
   const portfolio = await loadPortfolio(userId);
   return Response.json(portfolio);
 }
 
 export async function PUT(req: Request) {
   const userId = await requireUserId();
-  if (!userId) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
   const body = await req.json();
   const holdings = z.array(holdingSchema).parse(body.holdings ?? []);
   const persisted = await savePortfolio(userId, holdings);

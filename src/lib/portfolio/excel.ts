@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import type { Exchange, HoldingInput } from "@/lib/types";
-import { cleanSymbol, inferExchange, makeHoldingId } from "@/lib/market/normalize";
+import { makeHoldingId, resolveToTicker } from "@/lib/market/normalize";
 
 export type ImportField =
   | "symbol"
@@ -9,7 +9,8 @@ export type ImportField =
   | "averagePrice"
   | "buyDate"
   | "sector"
-  | "notes";
+  | "notes"
+  | "isin";
 
 export type ColumnMapping = Partial<Record<ImportField, string>>;
 
@@ -35,7 +36,8 @@ const aliases: Record<ImportField, string[]> = {
   ],
   buyDate: ["buy date", "purchase date", "date", "trade date"],
   sector: ["sector", "industry"],
-  notes: ["notes", "remarks", "comment"]
+  notes: ["notes", "remarks", "comment"],
+  isin: ["isin", "isin number", "isin no"]
 };
 
 function normalizeHeader(value: string) {
@@ -143,14 +145,20 @@ export function rowsToHoldings(
       return;
     }
 
+    const isinValue = mapping.isin ? coerceString(row[mapping.isin]) : undefined;
+
+    // Use resolveToTicker to convert company name / ISIN to proper ticker
+    const resolved = resolveToTicker(rawSymbol, isinValue);
+    const symbol = resolved.symbol;
+
     const exchangeValue = mapping.exchange
       ? coerceString(row[mapping.exchange])
-      : rawSymbol;
+      : "";
     const exchange: Exchange =
       exchangeValue.toUpperCase().includes("BSE") ||
       rawSymbol.toUpperCase().endsWith(".BO")
         ? "BSE"
-        : inferExchange(rawSymbol);
+        : resolved.exchange;
 
     const quantity = mapping.quantity ? coerceNumber(row[mapping.quantity]) : 0;
     const averagePrice = mapping.averagePrice
@@ -162,7 +170,6 @@ export function rowsToHoldings(
       return;
     }
 
-    const symbol = cleanSymbol(rawSymbol);
     const id = makeHoldingId(symbol, exchange);
     const existing = holdings.get(id);
 
