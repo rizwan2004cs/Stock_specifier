@@ -1016,6 +1016,7 @@ export function PortfolioApp() {
   const [holdings, setHoldings] = useState<HoldingInput[]>([]);
   const [snapshot, setSnapshot] = useState<PortfolioSnapshot>(() => emptySnapshot());
   const [workbook, setWorkbook] = useState<ParsedWorkbook | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
   const [mapping, setMapping] = useState<ColumnMapping>({});
   const [rejectedRows, setRejectedRows] = useState<{ row: number; reason: string }[]>([]);
   const [messages, setMessagesState] = useState<LocalChatMessage[]>([]);
@@ -1094,6 +1095,7 @@ export function PortfolioApp() {
   async function handleFile(file: File) {
     const parsed = await parsePortfolioWorkbook(file);
     setWorkbook(parsed);
+    setImportFile(file);
     setMapping(parsed.mapping);
     setRejectedRows([]);
   }
@@ -1108,6 +1110,17 @@ export function PortfolioApp() {
       startRefresh(() => {
         void refreshMarket(result.holdings);
       });
+
+      // Upload original file + holdings to Blob (non-blocking)
+      if (importFile) {
+        const formData = new FormData();
+        formData.append("file", importFile);
+        formData.append("holdings", JSON.stringify(result.holdings));
+        void fetch("/api/portfolio/upload", {
+          method: "POST",
+          body: formData
+        }).catch(() => undefined);
+      }
     }
   }
 
