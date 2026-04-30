@@ -1,0 +1,48 @@
+{
+  "name": "stock-specifier",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest run --pool=threads"
+  },
+  "dependencies": {
+    "@ai-sdk/groq": "latest",
+    "@ai-sdk/react": "^3.0.0",
+    "@clerk/nextjs": "latest",
+    "@neondatabase/serverless": "^1.0.2",
+    "@upstash/redis": "latest",
+    "@vercel/blob": "latest",
+    "ai": "^6.0.0",
+    "class-variance-authority": "latest",
+    "clsx": "latest",
+    "date-fns": "latest",
+    "fast-xml-parser": "latest",
+    "idb-keyval": "latest",
+    "lucide-react": "latest",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-markdown": "latest",
+    "recharts": "latest",
+    "tailwind-merge": "latest",
+    "xlsx": "latest",
+    "yahoo-finance2": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "latest",
+    "@tailwindcss/postcss": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "tailwindcss": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}
