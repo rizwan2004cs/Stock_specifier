@@ -20,7 +20,7 @@ export type ParsedWorkbook = {
 };
 
 const aliases: Record<ImportField, string[]> = {
-  symbol: ["symbol", "ticker", "scrip", "tradingsymbol", "security", "stock", "instrument", "company name"],
+  symbol: ["symbol", "ticker", "scrip", "tradingsymbol", "security", "stock", "instrument", "company name", "stock name"],
   exchange: ["exchange", "segment", "market"],
   quantity: ["qty", "quantity", "shares", "units", "holding qty", "net qty", "qty."],
   averagePrice: [
@@ -30,7 +30,8 @@ const aliases: Record<ImportField, string[]> = {
     "buy avg",
     "cost price",
     "average cost",
-    "avg cost"
+    "avg cost",
+    "average buy price"
   ],
   buyDate: ["buy date", "purchase date", "date", "trade date"],
   sector: ["sector", "industry"],
@@ -83,15 +84,48 @@ export async function parsePortfolioWorkbook(file: File): Promise<ParsedWorkbook
   const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
   const firstSheet = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[firstSheet];
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+  const rawRows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
+    header: 1,
     defval: ""
   });
-  const headers = rows[0] ? Object.keys(rows[0]) : [];
+
+  let bestScore = -1;
+  let headerRowIndex = 0;
+  let bestMapping: ColumnMapping = {};
+
+  for (let i = 0; i < Math.min(rawRows.length, 30); i++) {
+    const row = rawRows[i];
+    if (!Array.isArray(row)) continue;
+    
+    const headers = row.map(String);
+    const mapping = detectMapping(headers);
+    const score = Object.keys(mapping).length;
+
+    if (score > bestScore) {
+      bestScore = score;
+      headerRowIndex = i;
+      bestMapping = mapping;
+    }
+  }
+
+  const rawHeaders = Array.isArray(rawRows[headerRowIndex]) 
+    ? rawRows[headerRowIndex].map(String) 
+    : [];
+
+  const rows = rawRows.slice(headerRowIndex + 1).map((rawRow) => {
+    const obj: Record<string, unknown> = {};
+    if (Array.isArray(rawRow)) {
+      rawHeaders.forEach((header, index) => {
+        obj[header] = rawRow[index] ?? "";
+      });
+    }
+    return obj;
+  });
 
   return {
-    headers,
+    headers: rawHeaders,
     rows,
-    mapping: detectMapping(headers)
+    mapping: bestMapping
   };
 }
 
