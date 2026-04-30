@@ -29,12 +29,24 @@ export function makeHoldingId(symbol: string, exchange: Exchange) {
 }
 
 /**
- * Comprehensive ISIN → NSE ticker mapping for major Indian stocks.
- * This allows Groww / Zerodha / Angel One / CDSL exports
- * (which contain ISIN numbers, not ticker symbols) to be imported correctly.
+ * Normalize a company name for matching:
+ * collapse whitespace, uppercase, strip common suffixes.
+ */
+function normalizeName(raw: string): string {
+  return raw
+    .toUpperCase()
+    .replace(/&AMP;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\.$/, "")
+    .replace(/\s+(LIMITED|LTD|LT)\.?$/i, "")
+    .trim();
+}
+
+/**
+ * ISIN → NSE ticker mapping for major Indian stocks.
  */
 export const isinToTicker: Record<string, { symbol: string; exchange: Exchange }> = {
-  // Nifty 50 core
   "INE002A01018": { symbol: "RELIANCE", exchange: "NSE" },
   "INE040A01034": { symbol: "HDFCBANK", exchange: "NSE" },
   "INE090A01021": { symbol: "ICICIBANK", exchange: "NSE" },
@@ -53,7 +65,6 @@ export const isinToTicker: Record<string, { symbol: string; exchange: Exchange }
   "INE196A01026": { symbol: "MARICO", exchange: "NSE" },
   "INE868B01028": { symbol: "NCC", exchange: "NSE" },
   "INE205A01025": { symbol: "VEDL", exchange: "NSE" },
-  // Newer / Mid-cap stocks
   "INE148O01028": { symbol: "DELHIVERY", exchange: "NSE" },
   "INE0OV601013": { symbol: "EMSLIMITED", exchange: "NSE" },
   "INE758T01015": { symbol: "ETERNAL", exchange: "NSE" },
@@ -62,10 +73,8 @@ export const isinToTicker: Record<string, { symbol: string; exchange: Exchange }
   "INE00H001014": { symbol: "SWIGGY", exchange: "NSE" },
   "INE1TAE01010": { symbol: "TATAMTRDVR", exchange: "NSE" },
   "INE2KCE01013": { symbol: "KWALITYWALL", exchange: "NSE" },
-  // Mutual Funds (will get fallback quotes — that's okay)
   "INF666M01IO8": { symbol: "GROWWDEFNC", exchange: "NSE" },
   "INF666M01OE7": { symbol: "GROWWGOLD", exchange: "NSE" },
-  // More Nifty / large-cap
   "INE176A01028": { symbol: "BAJFINANCE", exchange: "NSE" },
   "INE296A01024": { symbol: "BHARTIARTL", exchange: "NSE" },
   "INE860A01027": { symbol: "HCLTECH", exchange: "NSE" },
@@ -75,7 +84,6 @@ export const isinToTicker: Record<string, { symbol: string; exchange: Exchange }
   "INE726G01019": { symbol: "ULTRACEMCO", exchange: "NSE" },
   "INE101A01026": { symbol: "KOTAKBANK", exchange: "NSE" },
   "INE160A01022": { symbol: "MARUTI", exchange: "NSE" },
-  "INE774D01024": { symbol: "WIPRO", exchange: "NSE" },
   "INE669E01016": { symbol: "POWERGRID", exchange: "NSE" },
   "INE752E01010": { symbol: "COALINDIA", exchange: "NSE" },
   "INE020B01018": { symbol: "ADANIENT", exchange: "NSE" },
@@ -88,7 +96,6 @@ export const isinToTicker: Record<string, { symbol: string; exchange: Exchange }
   "INE081A01012": { symbol: "BAJAJ-AUTO", exchange: "NSE" },
   "INE092T01019": { symbol: "JSWSTEEL", exchange: "NSE" },
   "INE028A01039": { symbol: "TECHM", exchange: "NSE" },
-  "INE040301027": { symbol: "HDFC", exchange: "NSE" },
   "INE238A01034": { symbol: "M&M", exchange: "NSE" },
   "INE397D01024": { symbol: "NESTLEIND", exchange: "NSE" },
   "INE042A01014": { symbol: "ASIANPAINT", exchange: "NSE" },
@@ -97,7 +104,6 @@ export const isinToTicker: Record<string, { symbol: string; exchange: Exchange }
   "INE261F01026": { symbol: "ONGC", exchange: "NSE" },
   "INE114A01011": { symbol: "BRITANNIA", exchange: "NSE" },
   "INE528G01035": { symbol: "SHREECEM", exchange: "NSE" },
-  "INE860A01027": { symbol: "HCLTECH", exchange: "NSE" },
   "INE797F01012": { symbol: "INDUSINDBK", exchange: "NSE" },
   "INE256A01028": { symbol: "EICHERMOT", exchange: "NSE" },
   "INE848E01016": { symbol: "HINDALCO", exchange: "NSE" },
@@ -109,159 +115,141 @@ export const isinToTicker: Record<string, { symbol: string; exchange: Exchange }
 };
 
 /**
- * Map common full company names from broker exports to NSE ticker symbols.
+ * Normalized company name → ticker.
+ * Keys are run through normalizeName() so "BHARAT PETROLEUM CORP  LT"
+ * and "BHARAT PETROLEUM CORP LTD." both match.
  */
-export const companyNameToTicker: Record<string, string> = {
-  "BHARAT PETROLEUM CORP": "BPCL",
-  "BHARAT PETROLEUM CORP LT": "BPCL",
-  "BHARAT PETROLEUM CORPORATION": "BPCL",
-  "DELHIVERY LIMITED": "DELHIVERY",
-  "DELHIVERY LTD": "DELHIVERY",
-  "EMS LIMITED": "EMSLIMITED",
-  "ETERNAL LIMITED": "ETERNAL",
-  "HDFC BANK LTD": "HDFCBANK",
-  "HDFC BANK LIMITED": "HDFCBANK",
-  "HINDUSTAN AERONAUTICS LTD": "HAL",
-  "HINDUSTAN AERONAUTICS LIMITED": "HAL",
-  "HINDUSTAN UNILEVER LTD": "HINDUNILVR",
-  "HINDUSTAN UNILEVER LTD.": "HINDUNILVR",
-  "HINDUSTAN UNILEVER LIMITED": "HINDUNILVR",
-  "HINDUSTAN ZINC LIMITED": "HINDZINC",
-  "HINDUSTAN ZINC LTD": "HINDZINC",
-  "ICICI BANK LTD": "ICICIBANK",
-  "ICICI BANK LTD.": "ICICIBANK",
-  "ICICI BANK LIMITED": "ICICIBANK",
-  "ITC LTD": "ITC",
-  "ITC LIMITED": "ITC",
-  "KWALITY WALL'S (INDIA) L": "KWALITYWALL",
-  "LARSEN & TOUBRO LTD": "LT",
-  "LARSEN & TOUBRO LTD.": "LT",
-  "LARSEN & TOUBRO LIMITED": "LT",
-  "LARSEN AND TOUBRO LTD": "LT",
-  "MARICO LIMITED": "MARICO",
-  "MARICO LTD": "MARICO",
-  "NCC LIMITED": "NCC",
-  "NCC LTD": "NCC",
-  "NTPC GREEN ENERGY LIMITED": "NTPCGREEN",
-  "NTPC LTD": "NTPC",
-  "NTPC LIMITED": "NTPC",
-  "SHADOWFAX TECHNOLOGIES L": "SHADOWFAX",
-  "SHADOWFAX TECHNOLOGIES LTD": "SHADOWFAX",
-  "STATE BANK OF INDIA": "SBIN",
-  "SWIGGY LIMITED": "SWIGGY",
-  "SWIGGY LTD": "SWIGGY",
-  "TATA MOTORS LIMITED": "TATAMOTORS",
-  "TATA MOTORS LTD": "TATAMOTORS",
-  "TATA MOTORS PASS VEH LTD": "TATAMTRDVR",
-  "TITAN COMPANY LIMITED": "TITAN",
-  "TITAN COMPANY LTD": "TITAN",
-  "VEDANTA LIMITED": "VEDL",
-  "VEDANTA LTD": "VEDL",
-  "RELIANCE INDUSTRIES LTD": "RELIANCE",
-  "RELIANCE INDUSTRIES LIMITED": "RELIANCE",
-  "INFOSYS LTD": "INFY",
-  "INFOSYS LIMITED": "INFY",
-  "TATA CONSULTANCY SERVICES LTD": "TCS",
-  "TATA CONSULTANCY SERVICES": "TCS",
-  "BAJAJ FINANCE LTD": "BAJFINANCE",
-  "BAJAJ FINANCE LIMITED": "BAJFINANCE",
-  "BHARTI AIRTEL LTD": "BHARTIARTL",
-  "BHARTI AIRTEL LIMITED": "BHARTIARTL",
-  "HCL TECHNOLOGIES LTD": "HCLTECH",
-  "HCL TECHNOLOGIES LIMITED": "HCLTECH",
-  "WIPRO LTD": "WIPRO",
-  "WIPRO LIMITED": "WIPRO",
-  "SUN PHARMACEUTICAL IND LTD": "SUNPHARMA",
-  "SUN PHARMA": "SUNPHARMA",
-  "AXIS BANK LTD": "AXISBANK",
-  "AXIS BANK LIMITED": "AXISBANK",
-  "KOTAK MAHINDRA BANK LTD": "KOTAKBANK",
-  "KOTAK MAHINDRA BANK LIMITED": "KOTAKBANK",
-  "MARUTI SUZUKI INDIA LTD": "MARUTI",
-  "MARUTI SUZUKI INDIA LIMITED": "MARUTI",
-  "ASIAN PAINTS LTD": "ASIANPAINT",
-  "ASIAN PAINTS LIMITED": "ASIANPAINT",
-  "TATA STEEL LTD": "TATASTEEL",
-  "TATA STEEL LIMITED": "TATASTEEL",
-  "POWER GRID CORP OF INDIA LTD": "POWERGRID",
-  "POWER GRID CORPORATION": "POWERGRID",
-  "COAL INDIA LTD": "COALINDIA",
-  "COAL INDIA LIMITED": "COALINDIA",
-  "DR REDDYS LABORATORIES LTD": "DRREDDY",
-  "DR. REDDYS LABORATORIES": "DRREDDY",
-  "CIPLA LTD": "CIPLA",
-  "CIPLA LIMITED": "CIPLA",
-  "JSW STEEL LTD": "JSWSTEEL",
-  "JSW STEEL LIMITED": "JSWSTEEL",
-  "TECH MAHINDRA LTD": "TECHM",
-  "TECH MAHINDRA LIMITED": "TECHM",
-  "MAHINDRA & MAHINDRA LTD": "M&M",
-  "MAHINDRA AND MAHINDRA": "M&M",
-  "NESTLE INDIA LTD": "NESTLEIND",
-  "NESTLE INDIA LIMITED": "NESTLEIND",
-  "ADANI ENTERPRISES LTD": "ADANIENT",
-  "ADANI PORTS AND SPECIAL": "ADANIPORTS",
-  "HERO MOTOCORP LTD": "HEROMOTOCO",
-  "BAJAJ AUTO LTD": "BAJAJ-AUTO",
-  "EICHER MOTORS LTD": "EICHERMOT",
-  "HINDALCO INDUSTRIES LTD": "HINDALCO",
-  "APOLLO HOSPITALS ENTERPRISE": "APOLLOHOSP",
-  "ULTRATECH CEMENT LTD": "ULTRACEMCO",
-  "GRASIM INDUSTRIES LTD": "GRASIM",
-  "BRITANNIA INDUSTRIES LTD": "BRITANNIA",
-  "SHREE CEMENT LTD": "SHREECEM",
-  "INDUSIND BANK LTD": "INDUSINDBK",
-  "ONGC LTD": "ONGC",
-  "OIL AND NATURAL GAS CORP": "ONGC",
-  "SBI LIFE INSURANCE CO LTD": "SBILIFE",
-  "HDFC LIFE INSURANCE CO LTD": "HDFCLIFE",
-  "BAJAJ FINSERV LTD": "BAJAJFINSV",
-  // Groww MF naming
-  "GROWWAMC - GROWWDEFNC": "GROWWDEFNC",
-  "GROWWAMC - GROWWGOLD": "GROWWGOLD",
-};
+const companyNameMap: Record<string, string> = {};
+
+const rawNameEntries: [string, string][] = [
+  ["BHARAT PETROLEUM CORP", "BPCL"],
+  ["BHARAT PETROLEUM CORPORATION", "BPCL"],
+  ["DELHIVERY", "DELHIVERY"],
+  ["EMS", "EMSLIMITED"],
+  ["ETERNAL", "ETERNAL"],
+  ["HDFC BANK", "HDFCBANK"],
+  ["HINDUSTAN AERONAUTICS", "HAL"],
+  ["HINDUSTAN UNILEVER", "HINDUNILVR"],
+  ["HINDUSTAN ZINC", "HINDZINC"],
+  ["ICICI BANK", "ICICIBANK"],
+  ["ITC", "ITC"],
+  ["KWALITY WALL'S (INDIA)", "KWALITYWALL"],
+  ["LARSEN & TOUBRO", "LT"],
+  ["LARSEN AND TOUBRO", "LT"],
+  ["L&T", "LT"],
+  ["MARICO", "MARICO"],
+  ["NCC", "NCC"],
+  ["NTPC GREEN ENERGY", "NTPCGREEN"],
+  ["NTPC", "NTPC"],
+  ["SHADOWFAX TECHNOLOGIES", "SHADOWFAX"],
+  ["STATE BANK OF INDIA", "SBIN"],
+  ["SBI", "SBIN"],
+  ["SWIGGY", "SWIGGY"],
+  ["TATA MOTORS", "TATAMOTORS"],
+  ["TATA MOTORS PASS VEH", "TATAMTRDVR"],
+  ["TITAN COMPANY", "TITAN"],
+  ["VEDANTA", "VEDL"],
+  ["RELIANCE INDUSTRIES", "RELIANCE"],
+  ["INFOSYS", "INFY"],
+  ["TATA CONSULTANCY SERVICES", "TCS"],
+  ["BAJAJ FINANCE", "BAJFINANCE"],
+  ["BHARTI AIRTEL", "BHARTIARTL"],
+  ["HCL TECHNOLOGIES", "HCLTECH"],
+  ["WIPRO", "WIPRO"],
+  ["SUN PHARMACEUTICAL", "SUNPHARMA"],
+  ["SUN PHARMA", "SUNPHARMA"],
+  ["AXIS BANK", "AXISBANK"],
+  ["KOTAK MAHINDRA BANK", "KOTAKBANK"],
+  ["MARUTI SUZUKI", "MARUTI"],
+  ["ASIAN PAINTS", "ASIANPAINT"],
+  ["TATA STEEL", "TATASTEEL"],
+  ["POWER GRID CORP", "POWERGRID"],
+  ["POWER GRID CORPORATION", "POWERGRID"],
+  ["COAL INDIA", "COALINDIA"],
+  ["DR REDDYS LABORATORIES", "DRREDDY"],
+  ["DR. REDDYS", "DRREDDY"],
+  ["CIPLA", "CIPLA"],
+  ["JSW STEEL", "JSWSTEEL"],
+  ["TECH MAHINDRA", "TECHM"],
+  ["MAHINDRA & MAHINDRA", "M&M"],
+  ["MAHINDRA AND MAHINDRA", "M&M"],
+  ["NESTLE INDIA", "NESTLEIND"],
+  ["ADANI ENTERPRISES", "ADANIENT"],
+  ["ADANI PORTS", "ADANIPORTS"],
+  ["HERO MOTOCORP", "HEROMOTOCO"],
+  ["BAJAJ AUTO", "BAJAJ-AUTO"],
+  ["EICHER MOTORS", "EICHERMOT"],
+  ["HINDALCO INDUSTRIES", "HINDALCO"],
+  ["HINDALCO", "HINDALCO"],
+  ["APOLLO HOSPITALS", "APOLLOHOSP"],
+  ["ULTRATECH CEMENT", "ULTRACEMCO"],
+  ["GRASIM INDUSTRIES", "GRASIM"],
+  ["GRASIM", "GRASIM"],
+  ["BRITANNIA INDUSTRIES", "BRITANNIA"],
+  ["BRITANNIA", "BRITANNIA"],
+  ["SHREE CEMENT", "SHREECEM"],
+  ["INDUSIND BANK", "INDUSINDBK"],
+  ["OIL AND NATURAL GAS", "ONGC"],
+  ["ONGC", "ONGC"],
+  ["SBI LIFE INSURANCE", "SBILIFE"],
+  ["HDFC LIFE INSURANCE", "HDFCLIFE"],
+  ["BAJAJ FINSERV", "BAJAJFINSV"],
+  ["GROWWAMC - GROWWDEFNC", "GROWWDEFNC"],
+  ["GROWWAMC - GROWWGOLD", "GROWWGOLD"],
+];
+
+// Build the lookup map with normalized keys
+for (const [name, ticker] of rawNameEntries) {
+  companyNameMap[normalizeName(name)] = ticker;
+}
 
 /**
- * Try to resolve a raw string (could be ISIN, company name, or ticker)
- * into a proper NSE/BSE ticker symbol.
+ * Resolve a raw string (ISIN, company name, or ticker) into a proper
+ * NSE/BSE ticker symbol. Tries ISIN first, then company name, then
+ * treats it as a raw ticker.
  */
-export function resolveToTicker(raw: string, isinHint?: string): { symbol: string; exchange: Exchange } {
-  const trimmed = raw.trim();
-
-  // 1. Check if an ISIN column was provided
+export function resolveToTicker(
+  raw: string,
+  isinHint?: string
+): { symbol: string; exchange: Exchange } {
+  // 1. ISIN lookup (most reliable)
   if (isinHint) {
     const cleaned = isinHint.trim().toUpperCase();
     const match = isinToTicker[cleaned];
     if (match) return match;
   }
 
+  const trimmed = raw.trim();
+
   // 2. Check if the raw value itself is an ISIN
-  if (/^INE[A-Z0-9]{9,}$/i.test(trimmed) || /^INF[A-Z0-9]{9,}$/i.test(trimmed)) {
+  if (/^IN[EF][A-Z0-9]{9,}$/i.test(trimmed)) {
     const match = isinToTicker[trimmed.toUpperCase()];
     if (match) return match;
   }
 
-  // 3. Check the company name map
-  const upper = trimmed.toUpperCase();
-  const nameMatch = companyNameToTicker[upper];
-  if (nameMatch) {
-    return { symbol: nameMatch, exchange: "NSE" };
+  // 3. Company name lookup (normalized)
+  const normalized = normalizeName(trimmed);
+
+  // 3a. Exact normalized match
+  const exactMatch = companyNameMap[normalized];
+  if (exactMatch) {
+    return { symbol: exactMatch, exchange: "NSE" };
   }
 
-  // 3b. Try partial matching for truncated names
-  for (const [name, ticker] of Object.entries(companyNameToTicker)) {
-    if (upper.startsWith(name) || name.startsWith(upper)) {
+  // 3b. Prefix match — "BHARAT PETROLEUM CORP" matches "BHARAT PETROLEUM"
+  for (const [mapName, ticker] of Object.entries(companyNameMap)) {
+    if (normalized.startsWith(mapName) || mapName.startsWith(normalized)) {
       return { symbol: ticker, exchange: "NSE" };
     }
   }
 
-  // 4. If it looks like a ticker already (short, no spaces), use it directly
+  // 4. If short and no spaces → treat as ticker directly
   const cleaned = cleanSymbol(trimmed);
-  if (cleaned.length <= 15 && !cleaned.includes(" ")) {
+  if (cleaned.length <= 15 && !/\s/.test(cleaned)) {
     return { symbol: cleaned, exchange: inferExchange(trimmed) };
   }
 
-  // 5. Last resort: take first word as potential ticker
+  // 5. Last resort: first word
   const firstWord = trimmed.split(/\s+/)[0].toUpperCase();
   return { symbol: cleanSymbol(firstWord), exchange: "NSE" };
 }

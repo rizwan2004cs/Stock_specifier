@@ -317,11 +317,11 @@ function HeroSummary({
               <MetricTile label="Holdings" value={String(snapshot.summary.holdingsCount)} />
               <MetricTile
                 label="Quality"
-                value={`${snapshot.summary.qualityScore}/100`}
+                value={`${Math.round(snapshot.summary.qualityScore)}/100`}
               />
               <MetricTile
                 label="Concentration"
-                value={`${snapshot.summary.concentrationScore}/100`}
+                value={`${Math.round(snapshot.summary.concentrationScore)}/100`}
               />
             </div>
             <div className="mt-6">
@@ -548,7 +548,7 @@ function ImportSection({
                 <table className="min-w-full text-left text-sm">
                   <thead className="bg-[var(--parchment)]">
                     <tr>
-                      {workbook.headers.slice(0, 8).map((header) => (
+                      {workbook.headers.map((header) => (
                         <th key={header} className="px-4 py-3 font-semibold">
                           {header}
                         </th>
@@ -556,9 +556,9 @@ function ImportSection({
                     </tr>
                   </thead>
                   <tbody>
-                    {workbook.rows.slice(0, 8).map((row, index) => (
+                    {workbook.rows.map((row, index) => (
                       <tr key={index} className="border-t border-[var(--hairline)]">
-                        {workbook.headers.slice(0, 8).map((header) => (
+                        {workbook.headers.map((header) => (
                           <td key={header} className="px-4 py-3">
                             {String(row[header] ?? "")}
                           </td>

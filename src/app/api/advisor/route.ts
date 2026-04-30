@@ -11,6 +11,7 @@ import {
   loadPortfolio,
   saveAdvisorMemory
 } from "@/lib/repositories/portfolio-repository";
+import { fetchMarketNews } from "@/lib/news/service";
 
 export const maxDuration = 30;
 
@@ -20,14 +21,26 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const userId = await requireUserId(); // always returns a string now
+  const userId = await requireUserId();
 
   const body = requestSchema.parse(await req.json());
   const portfolio = await loadPortfolio(userId);
+
+  // Fetch relevant news for the user's holdings
+  const symbols = ((body.snapshot as { holdings?: Array<{ symbol?: string }> })?.holdings ?? [])
+    .map((h) => h.symbol)
+    .filter(Boolean) as string[];
+  const news = await fetchMarketNews(symbols.slice(0, 8)).catch(() => []);
+  const newsContext = news
+    .slice(0, 10)
+    .map((n) => `- [${n.source}] ${n.title}`)
+    .join("\n");
+
   const prompt = buildAdvisorUserPrompt(
     body.snapshot as never,
     body.prompt,
-    portfolio.advisorMemory
+    portfolio.advisorMemory,
+    newsContext
   );
 
   if (!process.env.GROQ_API_KEY) {
@@ -43,9 +56,12 @@ export async function POST(req: Request) {
     prompt
   });
 
-  const memorySeed = `${portfolio.advisorMemory}\nLatest request: ${body.prompt}`.slice(
-    -4000
-  );
+  // Save conversation memory (last 4000 chars)
+  const memorySeed = [
+    portfolio.advisorMemory,
+    `\nUser: ${body.prompt}`,
+    `\nContext: ${symbols.slice(0, 5).join(", ")} portfolio`
+  ].join("").slice(-4000);
   void saveAdvisorMemory(userId, memorySeed);
 
   return result.toTextStreamResponse();

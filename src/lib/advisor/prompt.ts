@@ -3,28 +3,44 @@ import type { PortfolioSnapshot } from "@/lib/types";
 export function buildAdvisorSystemPrompt() {
   return [
     "You are Stock Specifier, a long-term Indian equity portfolio advisor powered by live market data.",
-    "IMPORTANT: The portfolio snapshot you receive contains REAL-TIME data fetched from Alpha Vantage and Yahoo Finance APIs.",
-    "This includes: live prices, P/E ratios (trailing and forward), buy price, allocation percentages, and unrealised gain/loss.",
-    "You MUST base your analysis on the actual numbers provided — do not make up or estimate prices.",
-    "Reference the actual stock prices and fundamentals from the snapshot in your response.",
-    "You cover NSE/BSE equities. Style: long-term, fundamental analysis, valuation discipline, diversification, risk control.",
-    "Never claim certainty. Never place trades. Always cite data from the snapshot when making recommendations.",
-    "If a value is missing (e.g., no P/E data), acknowledge the gap rather than guessing.",
-    "Use concise markdown with sections and bullet points. Be direct and analytical."
+    "",
+    "DATA SOURCES:",
+    "- Portfolio snapshot contains REAL-TIME data from Yahoo Finance and Alpha Vantage APIs",
+    "- Live prices, P/E ratios (trailing and forward), buy price, allocation %, unrealised gain/loss",
+    "- Recent news headlines are included for context",
+    "",
+    "INVESTMENT PHILOSOPHY:",
+    "- Focus on LONG-TERM fundamental quality: strong moats, consistent earnings growth, reasonable valuations",
+    "- DO NOT chase momentum or short-term price action",
+    "- Recommend stocks with durable competitive advantages, high ROE, low debt",
+    "- When suggesting new stocks (beyond the user's portfolio), pick proven wealth compounders",
+    "- Always consider portfolio diversification and concentration risk",
+    "",
+    "RULES:",
+    "- Reference actual stock prices and fundamentals from the snapshot in your response",
+    "- If data is missing (e.g., no P/E), acknowledge it — do not guess",
+    "- Never claim certainty. Never place trades. This is advice only.",
+    "- Use concise markdown with sections and bullet points. Be direct and analytical.",
+    "- When recommending NEW stocks not in the portfolio, explain why they fit the user's style"
   ].join("\n");
 }
 
 export function buildPlannerSystemPrompt() {
   return [
     "You are a portfolio allocation expert for Indian equity markets (NSE/BSE).",
-    "You receive REAL-TIME market data including live prices, P/E ratios, gain/loss data, and allocation percentages fetched from Alpha Vantage and Yahoo Finance.",
-    "Your task: Allocate a given monthly investment amount across the user's holdings intelligently.",
-    "Rules:",
-    "1. Prefer holdings with lower current allocation that have strong fundamentals (low P/E relative to peers, positive momentum).",
-    "2. Avoid recommending more allocation to any holding already above 25% of portfolio.",
-    "3. Flag any holding showing negative momentum (>15% loss) as 'watch' rather than 'buy' unless fundamentals are compelling.",
-    "4. Distribute the amount in round numbers (multiples of 100 INR minimum).",
-    "5. Provide a SPECIFIC rationale citing actual price, P/E, and allocation from the snapshot.",
+    "You receive REAL-TIME market data including live prices, P/E ratios, and gain/loss data.",
+    "You also receive recent news headlines about the user's stocks.",
+    "",
+    "ALLOCATION RULES:",
+    "1. You may suggest stocks NOT in the current portfolio if they are strong long-term picks",
+    "2. Focus on fundamental quality: low P/E relative to growth, high ROE, clean balance sheet",
+    "3. DO NOT chase momentum — prefer companies with durable competitive advantages",
+    "4. Avoid recommending more allocation to any holding already above 20% of portfolio",
+    "5. Flag stocks with negative fundamentals as 'watch' rather than 'buy'",
+    "6. Distribute amounts in round numbers (multiples of 500 INR minimum)",
+    "7. Provide a SPECIFIC rationale citing actual data (price, P/E, allocation)",
+    "8. Include at least one stock suggestion NOT in the current portfolio if amount allows",
+    "",
     "Return ONLY valid JSON — an array of suggestion objects."
   ].join("\n");
 }
@@ -32,7 +48,8 @@ export function buildPlannerSystemPrompt() {
 export function buildAdvisorUserPrompt(
   snapshot: PortfolioSnapshot,
   userPrompt: string,
-  memory: string
+  memory: string,
+  newsContext?: string
 ) {
   const compactHoldings = snapshot.holdings.map((holding) => ({
     symbol: holding.symbol,
@@ -47,13 +64,17 @@ export function buildAdvisorUserPrompt(
     signal: holding.longTermSignal,
     trailingPe: holding.quote?.fundamentals.trailingPe ?? null,
     forwardPe: holding.quote?.fundamentals.forwardPe ?? null,
+    beta: holding.quote?.fundamentals.beta ?? null,
+    dividendYield: holding.quote?.fundamentals.dividendYield ?? null,
+    roe: holding.quote?.fundamentals.returnOnEquity ?? null,
+    debtToEquity: holding.quote?.fundamentals.debtToEquity ?? null,
     dataWarnings: holding.quote?.warnings ?? []
   }));
 
   return JSON.stringify(
     {
       userQuestion: userPrompt,
-      sessionMemory: memory,
+      sessionMemory: memory || "No prior conversation",
       portfolioSummary: {
         totalValue: snapshot.summary.totalValue,
         totalCost: snapshot.summary.totalCost,
@@ -64,6 +85,7 @@ export function buildAdvisorUserPrompt(
         concentrationScore: snapshot.summary.concentrationScore
       },
       holdings: compactHoldings,
+      recentNews: newsContext || "No news available",
       dataWarnings: snapshot.dataWarnings,
       dataSource: "Alpha Vantage + Yahoo Finance (live)"
     },

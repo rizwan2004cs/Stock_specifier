@@ -3,6 +3,7 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { buildPlannerSuggestions } from "@/lib/advisor/fallback";
 import { buildPlannerSystemPrompt } from "@/lib/advisor/prompt";
+import { fetchMarketNews } from "@/lib/news/service";
 
 export const maxDuration = 30;
 
@@ -39,23 +40,41 @@ export async function POST(req: Request) {
     return Response.json({ suggestions });
   }
 
-  const compactHoldings = body.snapshot.holdings.map((h: Record<string, unknown>) => ({
-    symbol: h.symbol,
-    exchange: h.exchange,
-    quantity: h.quantity,
-    averagePrice: h.averagePrice,
-    livePrice: (h as Record<string, unknown> & { quote?: { price?: number } }).quote?.price ?? null,
-    allocation: typeof h.allocation === "number" ? Number(h.allocation.toFixed(2)) : 0,
-    gainLossPercent: typeof h.gainLossPercent === "number" ? Number(h.gainLossPercent.toFixed(2)) : 0,
-    marketValue: typeof h.marketValue === "number" ? Number(h.marketValue.toFixed(2)) : 0,
-    trailingPe: (h as Record<string, unknown> & { quote?: { fundamentals?: { trailingPe?: number } } }).quote?.fundamentals?.trailingPe ?? null,
-    signal: h.longTermSignal
-  }));
+  // Fetch news for context
+  const symbols = body.snapshot.holdings
+    .map((h: Record<string, unknown>) => h.symbol as string)
+    .filter(Boolean);
+  const news = await fetchMarketNews(symbols.slice(0, 8)).catch(() => []);
+  const newsContext = news
+    .slice(0, 10)
+    .map((n) => `- [${n.source}] ${n.title}`)
+    .join("\n");
+
+  const compactHoldings = body.snapshot.holdings.map((h: Record<string, unknown>) => {
+    const quote = h.quote as Record<string, unknown> | undefined;
+    const fundamentals = quote?.fundamentals as Record<string, unknown> | undefined;
+    return {
+      symbol: h.symbol,
+      exchange: h.exchange,
+      quantity: h.quantity,
+      averagePrice: h.averagePrice,
+      livePrice: quote?.price ?? null,
+      allocation: typeof h.allocation === "number" ? Number(h.allocation.toFixed(2)) : 0,
+      gainLossPercent: typeof h.gainLossPercent === "number" ? Number(h.gainLossPercent.toFixed(2)) : 0,
+      marketValue: typeof h.marketValue === "number" ? Number(h.marketValue.toFixed(2)) : 0,
+      trailingPe: fundamentals?.trailingPe ?? null,
+      forwardPe: fundamentals?.forwardPe ?? null,
+      signal: h.longTermSignal
+    };
+  });
 
   const userMessage = JSON.stringify({
     investmentAmount: body.amount,
     month: body.month ?? new Date().toISOString().slice(0, 7),
-    holdings: compactHoldings,
+    currentHoldings: compactHoldings,
+    portfolioSummary: body.snapshot.summary,
+    recentNews: newsContext,
+    instruction: "Allocate the investment amount across the best long-term growth stocks. You may include stocks NOT in the current portfolio. Focus on fundamental quality, not momentum. Cite actual data.",
     dataSource: "Alpha Vantage + Yahoo Finance (live)"
   }, null, 2);
 

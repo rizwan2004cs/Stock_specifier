@@ -114,15 +114,22 @@ export async function parsePortfolioWorkbook(file: File): Promise<ParsedWorkbook
     ? rawRows[headerRowIndex].map(String) 
     : [];
 
-  const rows = rawRows.slice(headerRowIndex + 1).map((rawRow) => {
-    const obj: Record<string, unknown> = {};
-    if (Array.isArray(rawRow)) {
-      rawHeaders.forEach((header, index) => {
-        obj[header] = rawRow[index] ?? "";
-      });
-    }
-    return obj;
-  });
+  const rows = rawRows.slice(headerRowIndex + 1)
+    .map((rawRow) => {
+      const obj: Record<string, unknown> = {};
+      if (Array.isArray(rawRow)) {
+        rawHeaders.forEach((header, index) => {
+          obj[header] = rawRow[index] ?? "";
+        });
+      }
+      return obj;
+    })
+    .filter((row) => {
+      // Filter out empty rows and summary rows
+      const values = Object.values(row);
+      const nonEmpty = values.filter((v) => v !== "" && v !== null && v !== undefined);
+      return nonEmpty.length >= 3; // A valid row needs at least 3 non-empty cells
+    });
 
   return {
     headers: rawHeaders,

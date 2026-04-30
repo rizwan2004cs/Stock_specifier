@@ -4,6 +4,7 @@ import {
   loadPortfolio,
   savePortfolio
 } from "@/lib/repositories/portfolio-repository";
+import { savePortfolioVersion } from "@/lib/portfolio/versions";
 
 const holdingSchema = z.object({
   id: z.string(),
@@ -26,6 +27,12 @@ export async function PUT(req: Request) {
   const userId = await requireUserId();
   const body = await req.json();
   const holdings = z.array(holdingSchema).parse(body.holdings ?? []);
+  
+  // Save to DB
   const persisted = await savePortfolio(userId, holdings);
+  
+  // Save versioned snapshot to Blob (non-blocking)
+  void savePortfolioVersion(userId, holdings).catch(() => null);
+  
   return Response.json({ persisted });
 }

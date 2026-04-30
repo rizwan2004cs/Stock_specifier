@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { buildPortfolioSnapshot } from "@/lib/portfolio/analytics";
 import { getQuotesForHoldings } from "@/lib/market/service";
+import { fetchMarketNews } from "@/lib/news/service";
+import { enrichSignalsWithAI } from "@/lib/advisor/signals";
+
+export const maxDuration = 30;
 
 const holdingSchema = z.object({
   id: z.string(),
@@ -17,5 +21,17 @@ export async function POST(req: Request) {
   const body = await req.json();
   const holdings = z.array(holdingSchema).parse(body.holdings ?? []);
   const quotes = await getQuotesForHoldings(holdings);
-  return Response.json(buildPortfolioSnapshot(holdings, quotes));
+  const snapshot = buildPortfolioSnapshot(holdings, quotes);
+
+  // Fetch news and enrich signals with AI in parallel
+  const symbols = holdings.map((h) => h.symbol);
+  const [news, enrichedSnapshot] = await Promise.all([
+    fetchMarketNews(symbols).catch(() => []),
+    enrichSignalsWithAI(snapshot, symbols).catch(() => snapshot)
+  ]);
+
+  return Response.json({
+    ...enrichedSnapshot,
+    _news: news // pass news along for use by other routes
+  });
 }
