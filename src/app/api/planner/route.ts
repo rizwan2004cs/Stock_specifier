@@ -53,15 +53,18 @@ export async function POST(req: Request) {
   const compactHoldings = body.snapshot.holdings.map((h: Record<string, unknown>) => {
     const quote = h.quote as Record<string, unknown> | undefined;
     const fundamentals = quote?.fundamentals as Record<string, unknown> | undefined;
+    const alloc = Number(h.allocation) || 0;
+    const glPct = Number(h.gainLossPercent) || 0;
+    const mv = Number(h.marketValue) || 0;
     return {
       symbol: h.symbol,
       exchange: h.exchange,
       quantity: h.quantity,
       averagePrice: h.averagePrice,
       livePrice: quote?.price ?? null,
-      allocation: typeof h.allocation === "number" ? Number(h.allocation.toFixed(2)) : 0,
-      gainLossPercent: typeof h.gainLossPercent === "number" ? Number(h.gainLossPercent.toFixed(2)) : 0,
-      marketValue: typeof h.marketValue === "number" ? Number(h.marketValue.toFixed(2)) : 0,
+      allocation: Math.round(alloc * 100) / 100,
+      gainLossPercent: Math.round(glPct * 100) / 100,
+      marketValue: Math.round(mv),
       trailingPe: fundamentals?.trailingPe ?? null,
       forwardPe: fundamentals?.forwardPe ?? null,
       signal: h.longTermSignal
@@ -87,11 +90,12 @@ export async function POST(req: Request) {
     });
 
     return Response.json({ suggestions: result.object.suggestions });
-  } catch {
+  } catch (error) {
+    console.error("[Planner] AI call failed, using fallback:", error);
     const suggestions = buildPlannerSuggestions(
       body.snapshot.holdings as never,
       body.amount
     );
-    return Response.json({ suggestions });
+    return Response.json({ suggestions, _fallback: true });
   }
 }

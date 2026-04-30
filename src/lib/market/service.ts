@@ -17,12 +17,20 @@ export async function getQuotesForHoldings(holdings: HoldingInput[]) {
       if (cached) {
         return { ...cached, freshness: "cached" as const };
       }
-      const yahooQuote = await fetchYahooQuote(holding.symbol, holding.exchange);
+
+      // Pass buyPrice so fallback uses real cost instead of fake numbers
+      const yahooQuote = await fetchYahooQuote(
+        holding.symbol,
+        holding.exchange,
+        holding.averagePrice
+      );
+
       const quote =
         yahooQuote.freshness === "fallback"
           ? (await fetchAlphaVantageQuote(holding.symbol, holding.exchange)) ??
             yahooQuote
           : yahooQuote;
+
       await cacheSet(cacheKey, quote, QUOTE_TTL_SECONDS);
       return quote;
     })

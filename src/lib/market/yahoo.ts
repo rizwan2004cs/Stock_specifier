@@ -14,6 +14,18 @@ type YahooFinanceClient = {
   ) => Promise<unknown>;
 };
 
+/**
+ * Some Indian stocks have different Yahoo Finance symbols
+ * than their NSE ticker. Map them here.
+ */
+const yahooSymbolOverrides: Record<string, string> = {
+  ETERNAL: "ZOMATO.NS",       // Zomato renamed to Eternal
+  TATAMTRDVR: "TATAMTRDVR.NS",
+  SBIN: "SBIN.NS",
+  "M&M": "M&M.NS",
+  "BAJAJ-AUTO": "BAJAJ-AUTO.NS",
+};
+
 function toNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
@@ -45,10 +57,11 @@ function buildHistory(chart: unknown): PricePoint[] {
 
 export async function fetchYahooQuote(
   symbol: string,
-  exchange: Exchange
+  exchange: Exchange,
+  buyPrice?: number
 ): Promise<MarketQuote> {
   const clean = cleanSymbol(symbol);
-  const yahooSymbol = toYahooSymbol(clean, exchange);
+  const yahooSymbol = yahooSymbolOverrides[clean] ?? toYahooSymbol(clean, exchange);
 
   try {
     const yahoo = (await import("yahoo-finance2"))
@@ -74,7 +87,7 @@ export async function fetchYahooQuote(
       toNumber(quote?.previousClose);
 
     if (!price) {
-      return fallbackQuote(clean, exchange);
+      return fallbackQuote(clean, exchange, buyPrice);
     }
 
     const previousClose = toNumber(quote?.regularMarketPreviousClose);
@@ -124,6 +137,6 @@ export async function fetchYahooQuote(
       warnings: ["Yahoo Finance is an unofficial and potentially delayed source"]
     };
   } catch {
-    return fallbackQuote(clean, exchange);
+    return fallbackQuote(clean, exchange, buyPrice);
   }
 }
